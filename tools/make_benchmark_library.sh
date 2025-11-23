@@ -9,6 +9,6 @@ cmake -E make_directory "build"
 # Generate build system files with cmake.
 cmake -E chdir "build" cmake -DCMAKE_BUILD_TYPE=Release ../
 # or, starting with CMake 3.13, use a simpler form:
-# cmake -DCMAKE_BUILD_TYPE=Release -S . -B "build"
+# cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-g0 -O3 -DNDEBUG" -DCMAKE_CXX_FLAGS="-g0 -O3 -DNDEBUG" -S . -B "build"
 # Build the library.
 cmake --build "build" --config Release --parallel `nproc`

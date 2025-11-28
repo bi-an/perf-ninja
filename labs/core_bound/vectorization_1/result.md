@@ -1,3 +1,5 @@
+## 编译选项
+
 ```bash
 $ clang++ -O3 -ffast-math -march=native -g -DNDEBUG -std=gnu++17 -o CMakeFiles/lab.dir/solution.cpp.o -c ../solution.cpp -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize 
 ../solution.cpp:60:7: remark: loop not vectorized: value that could not be identified as reduction is used outside the loop [-Rpass-analysis=loop-vectorize]
@@ -21,3 +23,74 @@ $ clang++ -O3 -ffast-math -march=native -g -DNDEBUG -std=gnu++17 -o CMakeFiles/l
 - `Rpass=loop-vectorize` 报告成功向量化的循环。
 - `Rpass-missed=loop-vectorize` 报告未向量化的循环及原因。
 - `Rpass-analysis=loop-vectorize` 报告向量化分析细节。
+
+
+## AOS to SOA
+
+AOS (Array of Structures)
+```cpp
+// AOS 方式
+struct Person {
+    char name[20];
+    int age;
+    float height;
+};
+
+Person people[1000];  // 包含1000个人的数组
+```
+
+SOA (Structure of Arrays)
+```cpp
+// SOA 方式
+struct PeopleData {
+    char names[1000][20];
+    int ages[1000];
+    float heights[1000];
+};
+
+PeopleData allPeople;  // 包含所有人员数据的结构
+```
+
+AOS 适合：
+```cpp
+// 适合面向对象的操作，访问单个对象的所有属性
+for (int i = 0; i < 1000; i++) {
+    processPerson(people[i]);  // 一次处理一个人的所有数据
+}
+```
+
+SOA 适合：
+```cpp
+// 适合并行处理，SIMD优化
+for (int i = 0; i < 1000; i++) {
+    processAllAges(ages[i]);    // 只处理年龄数据
+}
+for (int i = 0; i < 1000; i++) {
+    processAllHeights(heights[i]);  // 只处理身高数据
+}
+```
+
+1. 缓存友好性
+```cpp
+// SOA：连续访问同类型数据，缓存命中率高
+for (int i = 0; i < n; i++) {
+    sum += ages[i];  // 只访问age数据，缓存友好
+}
+
+// AOS：跳转访问不同字段，缓存不友好
+for (int i = 0; i < n; i++) {
+    sum += people[i].age;  // 每次访问跳过了name和height
+}
+```
+
+2. 向量化优化
+```cpp
+// SOA 容易进行SIMD优化
+__m128 age_vec = _mm_load_ps(&ages[i]);  // 一次加载4个age
+
+// AOS 难以向量化，需要数据重组
+```
+
+3. 内存效率
+   - SOA：只加载需要的数据
+   - AOS：即使只需要一个字段，也要加载整个结构体

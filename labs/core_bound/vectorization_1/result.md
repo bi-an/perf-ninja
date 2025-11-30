@@ -90,6 +90,29 @@ In file included from /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/1
 这个警告通常不需要担心，除非你在性能分析中确实发现这个循环是性能瓶颈。在大多数情况下，相信编译器的成本模型是正确的决策。
 
 
+## perf 检查
+
+```bash
+perf record ./lab
+perf report -n -M intel
+```
+
+可以看到，与优化前对比，增加了很多向量指令：
+
+```text
+Samples│       vpinsrw      xmm9,xmm9,WORD PTR [rdi],0x1
+    63 │       vpinsrw      xmm9,xmm9,WORD PTR [r8],0x2
+       │       vpinsrw      xmm9,xmm9,WORD PTR [r9],0x3
+    68 │       vpinsrw      xmm9,xmm9,WORD PTR [r10],0x4
+    17 │       vpinsrw      xmm9,xmm9,WORD PTR [r11],0x5
+   113 │       vpinsrw      xmm9,xmm9,WORD PTR [r15],0x6
+   179 │       vpinsrw      xmm9,xmm9,WORD PTR [r12],0x7
+   198 │       vinserti128  ymm8,ymm8,xmm9,0x1
+   286 │       vpaddw       ymm8,ymm12,ymm8
+   ...
+```
+
+
 ### 注：interleave 交错
 
 交错是一种循环优化技术，它将循环的多次迭代"交织"在一起执行，以更好地利用指令级并行性和隐藏内存访问延迟。

@@ -1,7 +1,23 @@
-## 编译选项
+
+## 结果
 
 ```bash
-$ clang++ -O3 -ffast-math -march=native -g -DNDEBUG -std=gnu++17 -o CMakeFiles/lab.dir/solution.cpp.o -c ../solution.cpp -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize 
+cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cd build
+cmake --build . --target benchmarkLab
+```
+
+--------------------------------------------------------------------------
+        Benchmark                        Time             CPU   Iterations
+--------------------------------------------------------------------------
+Before  bench_compute_alignment    4148986 ns      4146617 ns          657
+After   bench_compute_alignment     454165 ns       454059 ns         5750
+
+
+## 优化前
+
+```bash
+$ clang++ -O3 -ffast-math -march=native -g -DNDEBUG -std=gnu++17 -o CMakeFiles/lab.dir/solution.cpp.o -c ../solution.cpp -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 ../solution.cpp:60:7: remark: loop not vectorized: value that could not be identified as reduction is used outside the loop [-Rpass-analysis=loop-vectorize]
    60 |       for (unsigned row = 1; row <= sequence1.size(); ++row) {
       |       ^
@@ -11,123 +27,134 @@ $ clang++ -O3 -ffast-math -march=native -g -DNDEBUG -std=gnu++17 -o CMakeFiles/l
       |     ^
 ```
 
-其中，
-- `-O3` 会打开自动向量化（Auto Vectorization）。 `-O2` 是触发自动向量化的最低优化级别。
-- `-march=native` 会自动识别编译机器的 CPU 指令集，生成最优向量代码，无需手动改指定 AVX/AVX2/AVX512 。
-  - 其中 `march` 是 Machine Architecture 的缩写，`AVX` 是 Advanced Vector Extensions 的缩写。
-- `-ffast-math` 数学优化选项，放宽浮点语义，以提高向量化程度：
-  - 消除 “特殊值检查” 的分支依赖：比如 `x[i] = sqrt(y[i]);  // 需检查 y[i] 是否为负/NaN`，`-ffast-math` 则直接跳过；
-  - 允许运算重排：IEEE 754 标准要求浮点数运算遵循严格的顺序，如 `(a+b)+c` 不等于 `a+(b+c)`，因精度舍入；
-  - 允许 “常量传播” ：如 `sqrt(4.0)`→`2.0`；
-  - 允许 “函数内联”：如将标准数学函数（如 sin/cos/exp）替换为更快的内置向量函数（如 `__vrs4_sin`），这些函数可直接被向量指令处理。
-- `Rpass=loop-vectorize` 报告成功向量化的循环。
-- `Rpass-missed=loop-vectorize` 报告未向量化的循环及原因。
-- `Rpass-analysis=loop-vectorize` 报告向量化分析细节。
 
+## 优化后
 
-## AOS to SOA
-
-AOS (Array of Structures)
-```cpp
-// AOS 方式
-struct Person {
-    char name[20];
-    int age;
-    float height;
-};
-
-Person people[1000];  // 包含1000个人的数组
+```bash
+$ clang++ -O3 -ffast-math -march=native -g -DNDEBUG -std=gnu++17 -o CMakeFiles/lab.dir/solution.cpp.o -c ../solution.cpp -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
+In file included from ../solution.cpp:1:
+In file included from ../solution.hpp:1:
+In file included from /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/array:43:
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:919:11: remark: loop not vectorized: call instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+  919 |         *__first = __value;
+      |                  ^
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:918:7: remark: loop not vectorized: instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+  918 |       for (; __first != __last; ++__first)
+      |       ^
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:918:7: remark: loop not vectorized [-Rpass-missed=loop-vectorize]
+../solution.cpp:14:5: remark: the cost-model indicates that interleaving is not beneficial [-Rpass-analysis=loop-vectorize]
+   14 |     for (size_t j = 0; j < sequences[i].size(); ++j) {
+      |     ^
+../solution.cpp:14:5: remark: vectorized loop (vectorization width: 32, interleaved count: 1) [-Rpass=loop-vectorize]
+In file included from ../solution.cpp:1:
+In file included from ../solution.hpp:1:
+In file included from /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/array:43:
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:919:11: remark: loop not vectorized: call instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+  919 |         *__first = __value;
+      |                  ^
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:918:7: remark: loop not vectorized: instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+  918 |       for (; __first != __last; ++__first)
+      |       ^
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:918:7: remark: loop not vectorized [-Rpass-missed=loop-vectorize]
+../solution.cpp:14:5: remark: the cost-model indicates that interleaving is not beneficial [-Rpass-analysis=loop-vectorize]
+   14 |     for (size_t j = 0; j < sequences[i].size(); ++j) {
+      |     ^
+../solution.cpp:14:5: remark: vectorized loop (vectorization width: 32, interleaved count: 1) [-Rpass=loop-vectorize]
+In file included from ../solution.cpp:1:
+In file included from ../solution.hpp:1:
+In file included from /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/array:43:
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:919:11: remark: loop not vectorized: call instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+  919 |         *__first = __value;
+      |                  ^
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:918:7: remark: loop not vectorized: instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+  918 |       for (; __first != __last; ++__first)
+      |       ^
+/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/stl_algobase.h:918:7: remark: loop not vectorized [-Rpass-missed=loop-vectorize]
+../solution.cpp:14:5: remark: the cost-model indicates that interleaving is not beneficial [-Rpass-analysis=loop-vectorize]
+   14 |     for (size_t j = 0; j < sequences[i].size(); ++j) {
+      |     ^
+../solution.cpp:14:5: remark: vectorized loop (vectorization width: 32, interleaved count: 1) [-Rpass=loop-vectorize]
+../solution.cpp:62:3: remark: the cost-model indicates that vectorization is not beneficial [-Rpass-missed=loop-vectorize]
+   62 |   for (size_t i = 1; i < score_column.size(); ++i) {
+      |   ^
+../solution.cpp:62:3: remark: the cost-model indicates that interleaving is not beneficial [-Rpass-missed=loop-vectorize]
+../solution.cpp:84:7: remark: the cost-model indicates that interleaving is not beneficial [-Rpass-analysis=loop-vectorize]
+   84 |       for (size_t k = 0; k < sequence_count_v; ++k) {
+      |       ^
+../solution.cpp:84:7: remark: vectorized loop (vectorization width: 16, interleaved count: 1) [-Rpass=loop-vectorize]
 ```
 
-SOA (Structure of Arrays)
-```cpp
-// SOA 方式
-struct PeopleData {
-    char names[1000][20];
-    int ages[1000];
-    float heights[1000];
-};
+注：`remark: the cost-model indicates that interleaving is not beneficial` 
 
-PeopleData allPeople;  // 包含所有人员数据的结构
-```
+这个警告信息表明 Clang 的成本模型经过分析后认为，对循环进行交错（interleaving） 优化不会带来性能收益，因此决定不执行这种优化。
+这个警告通常不需要担心，除非你在性能分析中确实发现这个循环是性能瓶颈。在大多数情况下，相信编译器的成本模型是正确的决策。
 
-AOS 适合：
-```cpp
-// 适合面向对象的操作，访问单个对象的所有属性
-for (int i = 0; i < 1000; i++) {
-    processPerson(people[i]);  // 一次处理一个人的所有数据
+
+### 注：interleave 交错
+
+交错是一种循环优化技术，它将循环的多次迭代"交织"在一起执行，以更好地利用指令级并行性和隐藏内存访问延迟。
+
+简单例子：
+
+原始循环：
+```c
+for (int i = 0; i < 8; i++) {
+    a[i] = b[i] + c[i];
 }
 ```
 
-SOA 适合：
-```cpp
-// 适合并行处理，SIMD优化
-for (int i = 0; i < 1000; i++) {
-    processAllAges(ages[i]);    // 只处理年龄数据
-}
-for (int i = 0; i < 1000; i++) {
-    processAllHeights(heights[i]);  // 只处理身高数据
+交错后的概念版本（交错因子=2）：
+```c
+for (int i = 0; i < 8; i += 2) {
+    a[i]   = b[i]   + c[i];     // 迭代 i
+    a[i+1] = b[i+1] + c[i+1];   // 迭代 i+1
 }
 ```
 
-1. 缓存友好性
-```cpp
-// SOA：连续访问同类型数据，缓存命中率高
+为什么编译器认为交错"不有益"？
+
+1. 寄存器压力过大
+```c
+// 这个循环如果交错，需要太多寄存器
 for (int i = 0; i < n; i++) {
-    sum += ages[i];  // 只访问age数据，缓存友好
+    result[i] = a[i] * b[i] + c[i] * d[i] + e[i] * f[i];
 }
+```
+每个迭代需要：`a[i]`, `b[i]`, `c[i]`, `d[i]`, `e[i]`, `f[i]`, `result[i]`
 
-// AOS：跳转访问不同字段，缓存不友好
+如果交错4次，需要 7个变量 × 4次交错 = 28个向量寄存器
+
+可能超出目标架构的物理寄存器数量
+
+2. 指令缓存压力
+```c
+// 复杂循环体
 for (int i = 0; i < n; i++) {
-    sum += people[i].age;  // 每次访问跳过了name和height
+    double x = input[i];
+    double y = some_complex_function(x);
+    double z = another_complex_calculation(y);
+    output[i] = final_transform(z);
 }
 ```
+每个迭代的代码已经很大
 
-2. 向量化优化
-```cpp
-// SOA 容易进行SIMD优化
-__m128 age_vec = _mm_load_ps(&ages[i]);  // 一次加载4个age
+交错会导致循环体代码膨胀，可能不适合指令缓存
 
-// AOS 难以向量化，需要数据重组
+3. 数据依赖限制
+```c
+// 存在轻度的数据依赖
+for (int i = 0; i < n; i++) {
+    sum += data[i];  // 存在累加依赖
+    results[i] = data[i] * factor;
+}
 ```
+虽然主要的数组访问可以向量化，但sum的依赖限制了交错的好处
 
-3. 内存效率
-   - SOA：只加载需要的数据
-   - AOS：即使只需要一个字段，也要加载整个结构体
-
-
-## 序列对齐算法
-
-### 概念
-
-序列对齐是指将两个或多个序列进行排列比较，通过插入间隔（gaps）来突出它们之间的相似性区域。
-
-DNA/RNA/蛋白质序列比对
-
-```text
-序列1: A T G C - T A C G
-序列2: A T - C T T A C G
-      | |   | | | | |
-匹配:  ✓ ✓   ✓ ✓ ✓ ✓ ✓
+4. 内存访问模式不佳
+```c
+// 内存访问模式复杂
+for (int i = 0; i < n; i++) {
+    output[i] = input1[i] * input2[i] + input3[i * stride];
+}
+input3[i * stride]的非连续访问降低了交错的好处
 ```
-
-- 匹配: 相同字符对齐
-- 错配: 不同字符对齐
-- 缺失: 一个序列有字符，另一个对应位置是gap
-
-### 对齐的评分机制
-
-匹配得分
-
-```cpp
-sequence1[row-1] == sequence2[col-1] ? match : mismatch
-// 相同字符：+6分，不同字符：-4分
-```
-
-Gap罚分系统
-
-- Gap开启: -11分（开始一个新的gap）
-- Gap扩展: -1分（延长已有的gap）
-
-这鼓励连续的空位而不是多个分散的空位
-

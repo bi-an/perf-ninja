@@ -90,6 +90,11 @@ DNA/RNA/蛋白质序列比对
 
 编译器可以自动将代码中的标量操作转换为向量操作（SIMD 指令）。
 
+开启自动向量化：
+- 编译器选项：e.g. `-ffast-math`
+- 编译器提示：e.g. `#pragma clang loop vectorize(enable)`
+- 重写代码：e.g. 避免向量的依赖。
+
 ### clang 编译选项
 
 #### 优化级别

@@ -1,6 +1,8 @@
 
 #include "solution.h"
 #include <memory>
+#include <emmintrin.h>
+#include <smmintrin.h>
 
 void imageSmoothing(const InputVector &input, uint8_t radius,
                     OutputVector &output) {
@@ -22,6 +24,48 @@ void imageSmoothing(const InputVector &input, uint8_t radius,
 
   // 2. main loop.
   limit = size - radius;
+
+  // Compiler Intrinsics SSE4.1
+  const uint8_t *subtractPtr = input.data() + pos - radius - 1;
+  const uint8_t *addPtr = input.data() + pos + radius;
+  uint16_t* outputPtr = output.data() + pos;
+  // Broadcast currentSum per 16-bit
+  __m128i current = _mm_set1_epi16(currentSum);
+
+  int i = 0;
+  // Processes 8 elements per iteration
+  for (; pos + i + 7 < limit; i += 8) {
+    // load from unaligned memory addresss
+    // load low 64 bits (8 elements), clear high 64 bits
+    __m128i sub_u8 = _mm_loadu_si64(subtractPtr + i);
+    __m128i add_u8 = _mm_loadu_si64(addPtr + i);
+
+    // Convert uint8_t to int16_t
+    __m128i sub = _mm_cvtepu8_epi16(sub_u8);
+    __m128i add = _mm_cvtepu8_epi16(add_u8);
+
+    // Compute the diff: input[pos + radius] - input[pos - radius - 1]
+    __m128i diff = _mm_sub_epi16(add, sub);
+    
+    // Calculate vector prefix sum for 8 elments
+    // Logical Left Shift because of the little-endian
+    __m128i s = _mm_add_epi16(diff, _mm_slli_si128(diff, 2)); // 2 = sizeof(int16_t)
+    s = _mm_add_epi16(s, _mm_slli_si128(s, 4)); // 4 = 2 * sizeof(int16_t)
+    s = _mm_add_epi16(s, _mm_slli_si128(s, 8)); // 8 = 4 * sizeof(int16_t)
+
+    // Add currentSum to each element
+    __m128i result = _mm_add_epi16(s, current);
+
+    // Store result to: outPtr + i
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(outputPtr + i), result);
+
+    // Broadcast currentSum for the next iteration
+    currentSum = static_cast<uint16_t>(_mm_extract_epi16(result, 7)); // Get the last element
+    current = _mm_set1_epi16(currentSum);
+  }
+  pos += i; // pos = limit
+
+  // Still keep the sequential loop to process the remainder (which not be divided by 8)
   for (; pos < limit; ++pos) {
     currentSum -= input[pos - radius - 1];
     currentSum += input[pos + radius];

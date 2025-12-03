@@ -26,6 +26,7 @@ void imageSmoothing(const InputVector &input, uint8_t radius,
   limit = size - radius;
 
   // Compiler Intrinsics SSE4.1
+  // https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html
   const uint8_t *subtractPtr = input.data() + pos - radius - 1;
   const uint8_t *addPtr = input.data() + pos + radius;
   uint16_t* outputPtr = output.data() + pos;
